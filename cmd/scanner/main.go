@@ -14,7 +14,7 @@ import (
 )
 
 var (
-	depth int64 = 2
+	depth int64 = 3
 )
 
 func main() {

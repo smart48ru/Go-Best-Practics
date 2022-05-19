@@ -5,7 +5,6 @@ import (
 	"os"
 	"path/filepath"
 	"sync/atomic"
-	"time"
 )
 
 type FileInfo interface {
@@ -78,8 +77,8 @@ func (s *scanner) ListDirectory(dir string, depth int64) {
 	case <-s.ctx.Done():
 		return
 	default:
-		time.Sleep(time.Second * 5)
-		res, err := os.ReadDir(s.dir)
+		//time.Sleep(time.Second * 5)
+		res, err := os.ReadDir(dir)
 		if err != nil {
 			s.errChan <- err
 		}
