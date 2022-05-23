@@ -2,9 +2,11 @@ package scann
 
 import (
 	"context"
+	"fmt"
 	"github.com/rs/zerolog/log"
 	"os"
 	"path/filepath"
+	"sync"
 	"sync/atomic"
 )
 
@@ -28,13 +30,15 @@ type fileInfo struct {
 }
 
 type scanner struct {
-	ctx     context.Context
-	dir     string // start dir
-	resChan chan fileInfo
-	errChan chan error
-	depth   int64
-	ext     string
-	cDir    string // current work dir
+	ctx       context.Context
+	ctxCancel context.CancelFunc
+	wg        sync.WaitGroup
+	dir       string // start dir
+	resChan   chan fileInfo
+	errChan   chan error
+	depth     int64
+	ext       string
+	cDir      string // current work dir
 }
 
 type Scanner interface {
@@ -46,6 +50,7 @@ type Scanner interface {
 	ResChan() chan fileInfo
 	CurDir() string
 	Depth() int64
+	WG() *sync.WaitGroup
 }
 
 func (s *scanner) CurDir() string {
@@ -62,6 +67,9 @@ func (s *scanner) ResChan() chan fileInfo {
 func (s *scanner) DeIncDepth() {
 	atomic.AddInt64(&s.depth, -1)
 }
+func (s *scanner) WG() *sync.WaitGroup {
+	return &s.wg
+}
 
 func (s *scanner) IncDepth() {
 	atomic.AddInt64(&s.depth, 2)
@@ -73,6 +81,7 @@ func (s *scanner) Depth() int64 {
 
 func (s *scanner) ListDirectory(dir string, depth int64) {
 
+	defer s.WG().Done()
 	if depth < 0 {
 		return
 	}
@@ -91,6 +100,8 @@ func (s *scanner) ListDirectory(dir string, depth int64) {
 			if entry.IsDir() {
 				s.cDir = dir
 				log.Trace().Msgf("Recurse start ListDirectory in goroutine depth = %d", depth)
+				s.WG().Add(1)
+				fmt.Printf("WH = %v\n", s.wg)
 				go s.ListDirectory(path, depth-1)
 			} else {
 				info, err := entry.Info()
@@ -107,18 +118,25 @@ func (s *scanner) ListDirectory(dir string, depth int64) {
 }
 
 func (s *scanner) FindFiles() {
+	s.WG().Add(1)
+	fmt.Printf("WH = %v\n", s.wg)
+	//defer s.WG().Done()
 	log.Trace().Msg("Starting ListDirectory in goroutine")
 	go s.ListDirectory(s.dir, s.depth)
-
+	s.WG().Wait()
+	log.Trace().Msg("All goroutine Done")
+	s.ctxCancel()
 }
 
-func New(ctx context.Context, dir, ext string, depth int64) scanner {
+func New(ctx context.Context, cancel context.CancelFunc, dir, ext string, depth int64) scanner {
 	return scanner{
-		ctx:     ctx,
-		dir:     dir,
-		resChan: make(chan fileInfo),
-		errChan: make(chan error),
-		depth:   depth,
-		ext:     ext,
+		ctx:       ctx,
+		ctxCancel: cancel,
+		wg:        sync.WaitGroup{},
+		dir:       dir,
+		resChan:   make(chan fileInfo),
+		errChan:   make(chan error),
+		depth:     depth,
+		ext:       ext,
 	}
 }

@@ -147,9 +147,11 @@ func (c *configuration) configureLogger() {
 		Out:     os.Stdout,
 		NoColor: false,
 		FormatTimestamp: func(i interface{}) string {
-			parse, _ := time.Parse(time.RFC3339, i.(string))
-
-			return parse.Format("02-01-2006 15:04:05")
+			parse, err := time.Parse(time.RFC3339Nano, i.(string))
+			if err != nil {
+				log.Error().Msgf("%s", err)
+			}
+			return parse.Format("2006-01-02 15:04:05 Z07:00")
 		},
 	}
 

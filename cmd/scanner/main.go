@@ -35,7 +35,7 @@ func main() {
 	defer cancel()
 
 	log.Debug().Msgf("Make NewScanner extension = *%s, depth = %d", cfg.FileExt(), cfg.MaxDepth())
-	sc := scann.New(ctx, wd, cfg.FileExt(), cfg.MaxDepth())
+	sc := scann.New(ctx, cancel, wd, cfg.FileExt(), cfg.MaxDepth())
 
 	log.Trace().Msg("Start FindFile in goroutine")
 	go sc.FindFiles()
