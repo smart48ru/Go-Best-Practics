@@ -2,6 +2,7 @@ package scann
 
 import (
 	"context"
+	"github.com/rs/zerolog/log"
 	"os"
 	"path/filepath"
 	"sync/atomic"
@@ -28,13 +29,12 @@ type fileInfo struct {
 
 type scanner struct {
 	ctx     context.Context
-	dir     string
+	dir     string // start dir
 	resChan chan fileInfo
 	errChan chan error
 	depth   int64
 	ext     string
-	cDir    string
-	check   map[string]struct{}
+	cDir    string // current work dir
 }
 
 type Scanner interface {
@@ -54,6 +54,7 @@ func (s *scanner) CurDir() string {
 func (s *scanner) ErrChan() chan error {
 	return s.errChan
 }
+
 func (s *scanner) ResChan() chan fileInfo {
 	return s.resChan
 }
@@ -65,11 +66,13 @@ func (s *scanner) DeIncDepth() {
 func (s *scanner) IncDepth() {
 	atomic.AddInt64(&s.depth, 2)
 }
+
 func (s *scanner) Depth() int64 {
 	return s.depth
 }
 
 func (s *scanner) ListDirectory(dir string, depth int64) {
+
 	if depth < 0 {
 		return
 	}
@@ -77,15 +80,17 @@ func (s *scanner) ListDirectory(dir string, depth int64) {
 	case <-s.ctx.Done():
 		return
 	default:
-		//time.Sleep(time.Second * 5)
+		// time.Sleep(time.Second * 10)
 		res, err := os.ReadDir(dir)
 		if err != nil {
 			s.errChan <- err
 		}
+
 		for _, entry := range res {
 			path := filepath.Join(dir, entry.Name())
 			if entry.IsDir() {
 				s.cDir = dir
+				log.Trace().Msgf("Recurse start ListDirectory in goroutine depth = %d", depth)
 				go s.ListDirectory(path, depth-1)
 			} else {
 				info, err := entry.Info()
@@ -102,7 +107,9 @@ func (s *scanner) ListDirectory(dir string, depth int64) {
 }
 
 func (s *scanner) FindFiles() {
+	log.Trace().Msg("Starting ListDirectory in goroutine")
 	go s.ListDirectory(s.dir, s.depth)
+
 }
 
 func New(ctx context.Context, dir, ext string, depth int64) scanner {
@@ -113,6 +120,5 @@ func New(ctx context.Context, dir, ext string, depth int64) scanner {
 		errChan: make(chan error),
 		depth:   depth,
 		ext:     ext,
-		check:   make(map[string]struct{}),
 	}
 }
