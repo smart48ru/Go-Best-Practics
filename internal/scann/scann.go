@@ -2,12 +2,12 @@ package scann
 
 import (
 	"context"
-	"fmt"
 	"github.com/rs/zerolog/log"
 	"os"
 	"path/filepath"
 	"sync"
 	"sync/atomic"
+	"time"
 )
 
 type FileInfo interface {
@@ -51,11 +51,21 @@ type Scanner interface {
 	CurDir() string
 	Depth() int64
 	WG() *sync.WaitGroup
+	Ctx() context.Context
+	CtxCancel() context.CancelFunc
 }
 
 func (s *scanner) CurDir() string {
 	return s.cDir
 }
+
+func (s *scanner) Ctx() context.Context {
+	return s.ctx
+}
+func (s *scanner) CtxCancel() context.CancelFunc {
+	return s.ctxCancel
+}
+
 func (s *scanner) ErrChan() chan error {
 	return s.errChan
 }
@@ -67,6 +77,7 @@ func (s *scanner) ResChan() chan fileInfo {
 func (s *scanner) DeIncDepth() {
 	atomic.AddInt64(&s.depth, -1)
 }
+
 func (s *scanner) WG() *sync.WaitGroup {
 	return &s.wg
 }
@@ -80,7 +91,6 @@ func (s *scanner) Depth() int64 {
 }
 
 func (s *scanner) ListDirectory(dir string, depth int64) {
-
 	defer s.WG().Done()
 	if depth < 0 {
 		return
@@ -89,19 +99,18 @@ func (s *scanner) ListDirectory(dir string, depth int64) {
 	case <-s.ctx.Done():
 		return
 	default:
-		// time.Sleep(time.Second * 10)
+		//time.Sleep(time.Second * 1)
 		res, err := os.ReadDir(dir)
 		if err != nil {
 			s.errChan <- err
 		}
-
 		for _, entry := range res {
 			path := filepath.Join(dir, entry.Name())
 			if entry.IsDir() {
 				s.cDir = dir
 				log.Trace().Msgf("Recurse start ListDirectory in goroutine depth = %d", depth)
 				s.WG().Add(1)
-				fmt.Printf("WH = %v\n", s.wg)
+				//fmt.Printf("WH = %v\n", s.wg)
 				go s.ListDirectory(path, depth-1)
 			} else {
 				info, err := entry.Info()
@@ -119,16 +128,19 @@ func (s *scanner) ListDirectory(dir string, depth int64) {
 
 func (s *scanner) FindFiles() {
 	s.WG().Add(1)
-	fmt.Printf("WH = %v\n", s.wg)
-	//defer s.WG().Done()
 	log.Trace().Msg("Starting ListDirectory in goroutine")
 	go s.ListDirectory(s.dir, s.depth)
 	s.WG().Wait()
-	log.Trace().Msg("All goroutine Done")
+	log.Trace().Msg("Done - Which WaitGroup")
 	s.ctxCancel()
 }
 
-func New(ctx context.Context, cancel context.CancelFunc, dir, ext string, depth int64) scanner {
+func New(timeout int, dir, ext string, depth int64) scanner {
+
+	log.Trace().Msg("Make context WitchTimeOut")
+	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(ctx, time.Duration(timeout)*time.Second)
+
 	return scanner{
 		ctx:       ctx,
 		ctxCancel: cancel,

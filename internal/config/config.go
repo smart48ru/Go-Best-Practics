@@ -1,10 +1,11 @@
 package configuration
 
 import (
-	"flag"
 	"fmt"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	"github.com/spf13/pflag"
+	"github.com/spf13/viper"
 	"os"
 	"time"
 )
@@ -21,31 +22,34 @@ type Configuration interface {
 
 type configuration struct {
 	helper     bool
-	maxDepth   int64         `yaml:"max_depth"`
-	jsonOutput bool          `yaml:"json_log"`
-	fileExt    string        `yaml:"file_ext"`
-	logLevel   zerolog.Level `yaml:"log_level"`
+	maxDepth   int64
+	jsonOutput bool
+	fileExt    string
+	logLevel   zerolog.Level
+	configFile string
 }
 
 const (
-	DefaultMaxDepth = 2
-	DefaultNeedHelp = false
-	DefaultJSONLog  = false
-	DefaultLogLevel = "info"
-	DefaultFileExt  = ".go"
+	DefaultMaxDepth   = 2
+	DefaultNeedHelp   = false
+	DefaultJSONLog    = false
+	DefaultLogLevel   = "info"
+	DefaultFileExt    = ".go"
+	DefaultConfigFile = ""
 )
 
 func flagsRead() (c configuration, err error) {
 	var ll string
 
-	flag.BoolVar(&c.helper, "h", DefaultNeedHelp, "Print help")
-	flag.Int64Var(&c.maxDepth, "d", DefaultMaxDepth, "Max depth")
-	flag.StringVar(&c.fileExt, "e", DefaultFileExt, "File extension")
-	flag.BoolVar(&c.jsonOutput, "j", DefaultJSONLog, "JSON log format")
-	flag.StringVar(&ll, "l", DefaultLogLevel, "Log level")
-	flag.Parse()
+	pflag.BoolVar(&c.helper, "h", DefaultNeedHelp, "Print help")
+	pflag.Int64Var(&c.maxDepth, "d", DefaultMaxDepth, "Max depth")
+	pflag.StringVar(&c.fileExt, "e", DefaultFileExt, "File extension")
+	pflag.BoolVar(&c.jsonOutput, "j", DefaultJSONLog, "JSON log format")
+	pflag.StringVar(&ll, "l", DefaultLogLevel, "Log level")
+	pflag.StringVar(&c.configFile, "c", DefaultConfigFile, "Config file JSON, TOML, YAML, HCL, envfile")
+	pflag.Parse()
 
-	c.configureLogger() // костыль, что бы вывести красиво ошибку, как сделать лучше я не разобрался :(
+	//c.configureLogger() // костыль, что бы вывести красиво ошибку, как сделать лучше я не разабрался :(
 	c.logLevel, err = zerolog.ParseLevel(ll)
 	if err != nil {
 		c.logLevel = 1
@@ -54,6 +58,26 @@ func flagsRead() (c configuration, err error) {
 	}
 	return
 }
+
+//func flagsRead() (c configuration, err error) {
+//	var ll string
+//
+//	flag.BoolVar(&c.helper, "h", DefaultNeedHelp, "Print help")
+//	flag.Int64Var(&c.maxDepth, "d", DefaultMaxDepth, "Max depth")
+//	flag.StringVar(&c.fileExt, "e", DefaultFileExt, "File extension")
+//	flag.BoolVar(&c.jsonOutput, "j", DefaultJSONLog, "JSON log format")
+//	flag.StringVar(&ll, "l", DefaultLogLevel, "Log level")
+//	flag.Parse()
+//
+//	c.configureLogger() // костыль, что бы вывести красиво ошибку, как сделать лучше я не разобрался :(
+//	c.logLevel, err = zerolog.ParseLevel(ll)
+//	if err != nil {
+//		c.logLevel = 1
+//		log.Error().Msgf("Ошибка установки уровня логирования | Установлен уровень логирования по умолчанию = %s", DefaultLogLevel)
+//		//return
+//	}
+//	return
+//}
 
 func (c *configuration) loadFromFlags(cf configuration) {
 	if cf.helper {
@@ -73,12 +97,57 @@ func (c *configuration) loadFromFlags(cf configuration) {
 	}
 }
 
+func (c *configuration) loadFromViper(cf configuration) {
+	fmt.Println("Load from viper")
+	viper.SetConfigName(c.configFile)
+	viper.AddConfigPath(".")
+	err := viper.ReadInConfig()
+	if err != nil {
+		log.Error().Msgf("Fatal error config file: %v \n", err)
+		c.loadFromFlags(*c)
+		return
+	}
+	if cf.helper {
+		c.helper = cf.helper
+	}
+	if viper.GetString("file_ext") != "" {
+		cf.fileExt = viper.GetString("file_ext")
+		c.fileExt = cf.fileExt
+	}
+	if viper.GetBool("json_output") {
+		cf.jsonOutput = viper.GetBool("json_output")
+		c.jsonOutput = cf.jsonOutput
+	}
+	if viper.GetString("log_level") != "" {
+		ll, err := zerolog.ParseLevel(viper.GetString("log_level"))
+		if err != nil {
+			cf.logLevel = 1
+			c.logLevel = cf.logLevel
+			log.Error().Msgf("Ошибка установки уровня логирования | Установлен уровень логирования по умолчанию = %s", DefaultLogLevel)
+			//return
+		}
+		cf.logLevel = ll
+		c.logLevel = cf.logLevel
+	}
+	if viper.GetInt("max_depth") != 0 {
+		cf.maxDepth = viper.GetInt64("max_depth")
+		c.maxDepth = cf.maxDepth
+	}
+
+	fmt.Println(cf)
+
+}
 func New() configuration {
 	flagConf, err := flagsRead()
 	if err != nil {
 		log.Error().Err(err)
 	}
 	cfg := configuration{}
+	if flagConf.configFile != "" {
+		cfg.loadFromViper(flagConf)
+		cfg.configureLogger()
+		return cfg
+	}
 	cfg.loadFromFlags(flagConf)
 	cfg.configureLogger()
 	return cfg
@@ -114,11 +183,11 @@ func (c *configuration) PrintHelp() {
 Сканирует каталог и подкаталоги на заданную глубину для поиска файлов с определенным расширением
 
 Ключи запуска:
--h вывод подсказки
--d максимальная глубина поиска
--e расширение файла 
--j вывод лога в формате JSON
--l уровень логирования :
+--h вывод подсказки
+--d максимальная глубина поиска
+--e расширение файла 
+--j вывод лога в формате JSON
+--l уровень логирования :
 			panic (PanicLevel, 5)
 			fatal (FatalLevel, 4)
 			error (ErrorLevel, 3)
@@ -126,19 +195,21 @@ func (c *configuration) PrintHelp() {
 			info (InfoLevel, 1)
 			debug (DebugLevel, 0)
 			trace (TraceLevel, -1)
+--c имя конфигурационного файла
+	поддерживает JSON, TOML, YAML, HCL, envfile
 
 Пример использования:
-bin/filescanner -m 5 ## Глубина поиска 5 (default = %d)
-bin/filescanner -m j ## Выводит лог в формате JSON (default = Stdout)
-иin/filescanner -e .go ## Выводит лог в формате JSON (default = %s)
-bin/filescanner -l info ## Устанавливает уровень логирования info (default = %s)
+bin/filescanner --d 5 ## Глубина поиска 5 (default = %d)
+bin/filescanner --j ## Выводит лог в формате JSON (default = Stdout)
+иin/filescanner --e .go ## Выводит лог в формате JSON (default = %s)
+bin/filescanner --l info ## Устанавливает уровень логирования info (default = %s)
 `, DefaultMaxDepth, DefaultFileExt, DefaultLogLevel)
 }
 
 func (c *configuration) configureLogger() {
 	zerolog.SetGlobalLevel(c.logLevel)
-
 	if c.jsonOutput {
+		fmt.Println(c.jsonOutput)
 		zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
 		return
 	}
@@ -147,9 +218,9 @@ func (c *configuration) configureLogger() {
 		Out:     os.Stdout,
 		NoColor: false,
 		FormatTimestamp: func(i interface{}) string {
-			parse, err := time.Parse(time.RFC3339Nano, i.(string))
+			parse, err := time.Parse(time.RFC3339, i.(string))
 			if err != nil {
-				log.Error().Msgf("%s", err)
+				log.Error().Msgf("Time format parse error: %s", err)
 			}
 			return parse.Format("2006-01-02 15:04:05 Z07:00")
 		},

@@ -3,16 +3,12 @@ package main
 // Исходники задания для первого занятия у других групп https://github.com/t0pep0/GB_best_go
 
 import (
+	"Best-GO/internal/config"
 	"Best-GO/internal/scann"
-	"context"
-	"fmt"
+	"github.com/rs/zerolog/log"
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
-
-	"Best-GO/internal/config"
-	"github.com/rs/zerolog/log"
 )
 
 func main() {
@@ -25,26 +21,20 @@ func main() {
 	log.Debug().Msgf("My id: %d", os.Getpid())
 	wd, err := os.Getwd()
 	if err != nil {
-		msg := fmt.Sprintf("%s", err)
-		log.Error().Msg(msg)
+		log.Error().Msgf("%s", err)
 	}
 
-	log.Trace().Msg("Make context WitchTimeOut")
-	ctx := context.Background()
-	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
-	defer cancel()
-
 	log.Debug().Msgf("Make NewScanner extension = *%s, depth = %d", cfg.FileExt(), cfg.MaxDepth())
-	sc := scann.New(ctx, cancel, wd, cfg.FileExt(), cfg.MaxDepth())
+	sc := scann.New(10, wd, cfg.FileExt(), cfg.MaxDepth())
 
 	log.Trace().Msg("Start FindFile in goroutine")
 	go sc.FindFiles()
 
 	log.Trace().Msg("Start ListChanel in goroutine")
-	listenChannels(ctx, cancel, &sc, &cfg)
+	listenChannels(&sc, &cfg)
 }
 
-func listenChannels(ctx context.Context, cancel context.CancelFunc, s scann.Scanner, cfg configuration.Configuration) {
+func listenChannels(s scann.Scanner, cfg configuration.Configuration) {
 	stopCh := make(chan os.Signal, 1)
 	signal.Notify(stopCh, syscall.SIGINT, syscall.SIGTERM)
 
@@ -56,8 +46,9 @@ func listenChannels(ctx context.Context, cancel context.CancelFunc, s scann.Scan
 
 	for {
 		select {
-		case <-ctx.Done():
+		case <-s.Ctx().Done():
 			log.Info().Msg("Done")
+			s.CtxCancel()
 			return
 		case err := <-s.ErrChan():
 			log.Error().Msgf("%s", err)
@@ -69,7 +60,7 @@ func listenChannels(ctx context.Context, cancel context.CancelFunc, s scann.Scan
 			}
 		case <-stopCh:
 			log.Info().Msg("Принят сигнал к завершению программы")
-			cancel()
+			s.CtxCancel()
 		case <-usr1Chan:
 			log.Info().Msgf("Текущая директория %s, Текущая глубина поиска = %v", s.CurDir(), s.Depth())
 		case <-usr2Chan:

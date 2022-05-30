@@ -6,10 +6,25 @@ build:
 
 .PHONY: run
 run: build
-	@echo 'Start app bin/filescanner'
+	@echo 'Start app ./bin/filescanner'
 	@bin/filescanner
 
 .PHONY: help
 help: build
-	@echo 'Start app bin/filescanner -h'
+	@echo 'Start app ./bin/filescanner -h'
 	@bin/filescanner -h
+
+.PHONY: test_cover
+test_cover:
+	@echo 'Start Unit test cover'
+	@go test ./... -coverprofile fmt
+
+.PHONY: test
+test:
+	@echo 'Start Unit test'
+	@go test -race -covermode=atomic ./...
+
+.PHONY: integration
+integration:
+	@echo 'Start Integration test'
+	@go test -race -covermode=atomic --tags=integration ./...
