@@ -1,9 +1,10 @@
 package configuration
 
 import (
+	"testing"
+
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 type field struct {
@@ -66,7 +67,7 @@ func Test_Helper(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c := &configuration{
+			c := &Config{
 				helper:     tt.fields.helper,
 				maxDepth:   tt.fields.maxDepth,
 				jsonOutput: false,
@@ -127,15 +128,15 @@ func Test_JsonLog(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c := &configuration{
+			c := &Config{
 				helper:     tt.fields.helper,
 				maxDepth:   tt.fields.maxDepth,
 				jsonOutput: false,
 				fileExt:    DefaultFileExt,
 				logLevel:   tt.fields.logLevel,
 			}
-			if got := c.JsonLog(); got != tt.want && !tt.wantErr {
-				t.Errorf("JsonLog() = %v, want %v", got, tt.want)
+			if got := c.JSONnLog(); got != tt.want && !tt.wantErr {
+				t.Errorf("JSONnLog() = %v, want %v", got, tt.want)
 			}
 		})
 	}
@@ -176,7 +177,7 @@ func Test_FileExt(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c := &configuration{
+			c := &Config{
 				helper:     tt.fields.helper,
 				maxDepth:   tt.fields.maxDepth,
 				jsonOutput: false,
@@ -184,7 +185,7 @@ func Test_FileExt(t *testing.T) {
 				logLevel:   tt.fields.logLevel,
 			}
 			if got := c.FileExt(); got != tt.want && !tt.wantErr {
-				t.Errorf("JsonLog() = %v, want %v", got, tt.want)
+				t.Errorf("JSONnLog() = %v, want %v", got, tt.want)
 			}
 		})
 	}

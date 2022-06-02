@@ -5,9 +5,10 @@ package integration
 
 import (
 	"Best-GO/internal/scann"
+	"testing"
+
 	"github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 func Test_Scanner(t *testing.T) {

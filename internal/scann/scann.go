@@ -2,12 +2,13 @@ package scann
 
 import (
 	"context"
-	"github.com/rs/zerolog/log"
 	"os"
 	"path/filepath"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/rs/zerolog/log"
 )
 
 type FileInfo interface {
@@ -83,7 +84,8 @@ func (s *scanner) WG() *sync.WaitGroup {
 }
 
 func (s *scanner) IncDepth() {
-	atomic.AddInt64(&s.depth, 2)
+	var delta int64 = 2
+	atomic.AddInt64(&s.depth, delta)
 }
 
 func (s *scanner) Depth() int64 {
@@ -99,7 +101,7 @@ func (s *scanner) ListDirectory(dir string, depth int64) {
 	case <-s.ctx.Done():
 		return
 	default:
-		//time.Sleep(time.Second * 1)
+		// time.Sleep(time.Second * 1)
 		res, err := os.ReadDir(dir)
 		if err != nil {
 			s.errChan <- err
@@ -110,7 +112,6 @@ func (s *scanner) ListDirectory(dir string, depth int64) {
 				s.cDir = dir
 				log.Trace().Msgf("Recurse start ListDirectory in goroutine depth = %d", depth)
 				s.WG().Add(1)
-				//fmt.Printf("WH = %v\n", s.wg)
 				go s.ListDirectory(path, depth-1)
 			} else {
 				info, err := entry.Info()
@@ -136,12 +137,11 @@ func (s *scanner) FindFiles() {
 }
 
 func New(timeout int, dir, ext string, depth int64) scanner {
-
 	log.Trace().Msg("Make context WitchTimeOut")
 	ctx := context.Background()
 	ctx, cancel := context.WithTimeout(ctx, time.Duration(timeout)*time.Second)
 
-	return scanner{
+	return scanner{ //nolint:exhaustivestruct
 		ctx:       ctx,
 		ctxCancel: cancel,
 		wg:        sync.WaitGroup{},

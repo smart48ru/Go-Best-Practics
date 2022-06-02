@@ -28,3 +28,8 @@ test:
 integration:
 	@echo 'Start Integration test'
 	@go test -race -covermode=atomic --tags=integration ./...
+
+.PHONY: lint
+lint:
+	@echo 'Start lint'
+	golangci-lint run

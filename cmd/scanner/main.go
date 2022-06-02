@@ -1,14 +1,14 @@
 package main
 
 // Исходники задания для первого занятия у других групп https://github.com/t0pep0/GB_best_go
-
 import (
-	"Best-GO/internal/config"
+	configuration "Best-GO/internal/config"
 	"Best-GO/internal/scann"
-	"github.com/rs/zerolog/log"
 	"os"
 	"os/signal"
 	"syscall"
+
+	"github.com/rs/zerolog/log"
 )
 
 func main() {
@@ -23,9 +23,9 @@ func main() {
 	if err != nil {
 		log.Error().Msgf("%s", err)
 	}
-
+	timeOut := 10
 	log.Debug().Msgf("Make NewScanner extension = *%s, depth = %d", cfg.FileExt(), cfg.MaxDepth())
-	sc := scann.New(10, wd, cfg.FileExt(), cfg.MaxDepth())
+	sc := scann.New(timeOut, wd, cfg.FileExt(), cfg.MaxDepth())
 
 	log.Trace().Msg("Start FindFile in goroutine")
 	go sc.FindFiles()
@@ -49,11 +49,12 @@ func listenChannels(s scann.Scanner, cfg configuration.Configuration) {
 		case <-s.Ctx().Done():
 			log.Info().Msg("Done")
 			s.CtxCancel()
+
 			return
 		case err := <-s.ErrChan():
 			log.Error().Msgf("%s", err)
 		case result := <-s.ResChan():
-			if cfg.JsonLog() {
+			if cfg.JSONnLog() {
 				log.Info().Msgf("Name: %s Path: %s", result.Name(), result.Dir())
 			} else {
 				log.Info().Msgf("\tName: %s\t\t Path: %s", result.Name(), result.Dir())
