@@ -97,7 +97,7 @@ func (c *Config) loadFromFlags(cf Config) {
 }
 
 func (c *Config) loadFromViper(cf Config) {
-	fmt.Println("Load from viper")
+	log.Info().Msg("Load from viper")
 	viper.SetConfigName(c.configFile)
 	viper.AddConfigPath(".")
 	err := viper.ReadInConfig()
@@ -208,7 +208,6 @@ bin/filescanner --l info ## Устанавливает уровень логир
 func (c *Config) configureLogger() {
 	zerolog.SetGlobalLevel(c.logLevel)
 	if c.jsonOutput {
-		fmt.Println(c.jsonOutput)
 		zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
 
 		return
