@@ -1,0 +1,4 @@
+max_depth: 4
+json_output: false
+file_ext: ".go"
+log_level: trace
